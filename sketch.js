@@ -1,11 +1,30 @@
 let readout;
+let pg; // offscreen WEBGL canvas where the real 3D cube is rendered
+let cols, rows, charW, lineH, fontPx;
+const RAMP = " .:-=+*#%@";
+
+// size the character grid to the screen and (re)build the offscreen render target
+function layoutAscii() {
+  fontPx = max(8, min(width, height) / 45);
+  textFont("monospace");
+  textSize(fontPx);
+  charW = textWidth("M");
+  lineH = fontPx * 1.1;
+  cols = floor(width / charW);
+  rows = floor(height / lineH);
+  if (pg) pg.remove();
+  pg = createGraphics(width, height, WEBGL);
+  pg.pixelDensity(1);
+  pg.angleMode(DEGREES);
+  pg.noStroke();
+}
 
 function setup() {
-  createCanvas(windowWidth, windowHeight, WEBGL);
-  background("#121358");
+  createCanvas(windowWidth, windowHeight);
+  layoutAscii();
   noStroke();
 
-  // WEBGL text needs a loaded font, so the angle readout is a plain HTML overlay
+  // angle readout is a plain HTML overlay above the canvas
   readout = createDiv("");
   readout.position(10, 10);
   readout.style("color", "#fff");
@@ -53,16 +72,37 @@ function draw() {
     yaw = map(mouseX + mouseY, 0, width + height, 0, 360);
   }
 
-  ambientLight(120);
-  directionalLight(255, 255, 255, 0.3, 0.5, -1);
+  // 1) render the real 3D cube, full screen, into the offscreen buffer
+  pg.push();
+  pg.noLights();
+  pg.background("#121358");
+  pg.ambientLight(80);
+  pg.directionalLight(255, 255, 255, 0.3, 0.5, -1);
+  pg.rotateZ(-yaw);
+  pg.rotateX(pitch);
+  pg.rotateY(roll);
+  pg.fill(255);
+  pg.box(min(width, height) * 0.5);
+  pg.pop();
 
-  // same order the browser defines device orientation: Z (alpha), X (beta), Y (gamma)
-  rotateZ(-yaw);
-  rotateX(pitch);
-  rotateY(roll);
-
+  // 2) read that image back and turn each character cell into a symbol by brightness
+  pg.loadPixels();
+  background("#121358");
   fill("#36ADA3");
-  box(min(width, height) * 0.5);
+  textFont("monospace");
+  textSize(fontPx);
+  textAlign(LEFT, TOP);
+  for (let y = 0; y < rows; y++) {
+    const py = min(height - 1, floor(y * lineH + lineH / 2));
+    let line = "";
+    for (let x = 0; x < cols; x++) {
+      const px = min(width - 1, floor(x * charW + charW / 2));
+      const i = 4 * (py * width + px);
+      const lum = (pg.pixels[i] + pg.pixels[i + 1] + pg.pixels[i + 2]) / 3 / 255;
+      line += RAMP[floor(lum * (RAMP.length - 0.001))];
+    }
+    text(line, 0, y * lineH);
+  }
 
   readout.html(
     "Pitch (X): " + nf(pitch, 1, 1) + "°<br>" +
@@ -73,6 +113,7 @@ function draw() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  layoutAscii();
 }
 
 //#121358
