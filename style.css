@@ -1,6 +1,10 @@
 html, body {
     margin: 0;
     padding: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+    background: #121358;
   }
   canvas {
     display: block;

@@ -3,15 +3,25 @@ function setup() {
   background("#121358");
   textSize(20);
   noStroke();
-}
 
-// iOS only gives motion data after a tap, and only over HTTPS
-function mousePressed() {
+  // iOS 13+ only gives motion data after a tap (and only over HTTPS).
+  // Android and desktop don't need this, so no button is shown there.
   if (
     typeof DeviceMotionEvent !== "undefined" &&
     typeof DeviceMotionEvent.requestPermission === "function"
   ) {
-    DeviceMotionEvent.requestPermission().catch(console.error);
+    const btn = createButton("Tap to enable motion");
+    btn.position(width / 2 - 100, height / 2 - 25);
+    btn.size(200, 50);
+    btn.style("font-size", "18px");
+    btn.elt.addEventListener("click", () => {
+      DeviceMotionEvent.requestPermission()
+        .then((state) => {
+          if (state === "granted") btn.remove();
+          else btn.html("Motion denied - reload to retry");
+        })
+        .catch(console.error);
+    });
   }
 }
 
